@@ -11,6 +11,7 @@
 [![Python application](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-app.yml/badge.svg)](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-app.yml)
 [![Python Package using Conda](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-package-conda.yml)
 [![Python package](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-package.yml/badge.svg)](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-package.yml)
+[![Publish to PyPI](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-publish.yml/badge.svg)](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-publish.yml)
 
 **NeoVortex** is a modern, high-performance HTTP client library for Python 3.9+, designed to simplify and enhance interactions with APIs. Built with a focus on flexibility, extensibility, and developer experience, it provides a robust set of features for both synchronous and asynchronous HTTP requests, advanced authentication, middleware, plugins, and more. Whether you're a beginner or an experienced developer, NeoVortex makes API interactions intuitive and powerful.
 
