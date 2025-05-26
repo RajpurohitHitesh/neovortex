@@ -1,104 +1,41 @@
+from typing import Optional
+import httpx
+
 class NeoVortexError(Exception):
-    """Base exception class for all NeoVortex exceptions."""
-    
-    def __init__(self, message="An error occurred in NeoVortex"):
-        self.message = message
-        super().__init__(self.message)
-
-
-class AuthError(NeoVortexError):
-    """Exception raised for authentication related errors."""
-    
-    def __init__(self, message="Authentication error occurred"):
-        self.message = message
-        super().__init__(self.message)
-
-
-class RequestError(NeoVortexError):
-    """Exception raised for errors that occur during request preparation."""
-    
-    def __init__(self, message="Error occurred while preparing the request"):
-        self.message = message
-        super().__init__(self.message)
-
-
-class ResponseError(NeoVortexError):
-    """Exception raised for errors in the response handling."""
-    
-    def __init__(self, message="Error occurred while handling the response", 
-                 status_code=None, response=None):
-        self.message = message
-        self.status_code = status_code
+    """Base exception for NeoVortex."""
+    def __init__(self, message: str, response: Optional[httpx.Response] = None, error_data: Optional[dict] = None):
+        super().__init__(message)
         self.response = response
-        super().__init__(self.message)
+        self.error_data = error_data
 
+class NeoVortexError(Exception):
+    """Base exception for NeoVortex."""
+    pass
 
-class TimeoutError(NeoVortexError):
-    """Exception raised when a request times out."""
-    
-    def __init__(self, message="Request timed out"):
-        self.message = message
-        super().__init__(self.message)
+class SecurityError(NeoVortexError):
+    """Raised when a security-related error occurs."""
+    pass
 
-
-class ConnectionError(NeoVortexError):
-    """Exception raised for network connection errors."""
-    
-    def __init__(self, message="Connection error occurred"):
-        self.message = message
-        super().__init__(self.message)
-
+class AuthenticationError(NeoVortexError):
+    """Raised when authentication fails."""
+    pass
 
 class ValidationError(NeoVortexError):
-    """Exception raised for validation errors."""
-    
-    def __init__(self, message="Validation error occurred"):
-        self.message = message
-        super().__init__(self.message)
+    """Raised when validation fails."""
+    pass
 
+class NetworkError(NeoVortexError):
+    """Raised when a network error occurs."""
+    pass
 
-class PluginError(NeoVortexError):
-    """Exception raised for plugin-related errors."""
-    
-    def __init__(self, message="Plugin error occurred"):
-        self.message = message
-        super().__init__(self.message)
-
-
-class SSLError(NeoVortexError):
-    """Exception raised for SSL/TLS-related errors."""
-    
-    def __init__(self, message="SSL error occurred"):
-        self.message = message
-        super().__init__(self.message)
-
-
-class RedirectError(NeoVortexError):
-    """Exception raised for redirect-related errors."""
-    
-    def __init__(self, message="Redirect error occurred", 
-                 status_code=None, location=None):
-        self.message = message
-        self.status_code = status_code
-        self.location = location
-        super().__init__(self.message)
-
+class TimeoutError(NeoVortexError):
+    """Raised when a request times out."""
+    pass
 
 class RateLimitError(NeoVortexError):
-    """Exception raised when rate limits are exceeded."""
-    
-    def __init__(self, message="Rate limit exceeded", 
-                 reset_time=None, limit=None, remaining=None):
-        self.message = message
-        self.reset_time = reset_time
-        self.limit = limit
-        self.remaining = remaining
-        super().__init__(self.message)
+    """Raised when rate limit is exceeded."""
+    pass
 
-
-class JSONDecodeError(NeoVortexError):
-    """Exception raised when JSON decoding fails."""
-    
-    def __init__(self, message="Failed to decode JSON response"):
-        self.message = message
-        super().__init__(self.message)
+class ResponseError(NeoVortexError):
+    """Raised when there's an error in the response."""
+    pass
