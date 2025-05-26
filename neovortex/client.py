@@ -55,7 +55,12 @@ class NeoVortexClient:
                     raise SecurityError(f"Non-HTTPS proxy detected for {key}. Use HTTPS instead.")
         
         self.client = httpx.Client(
-            timeout=httpx.Timeout(connect=connect_timeout, read=read_timeout),
+            timeout=httpx.Timeout(
+                connect=connect_timeout,
+                read=read_timeout,
+                write=connect_timeout,
+                pool=connect_timeout
+            ),
             verify=verify_ssl,
             http2=True,
             limits=httpx.Limits(
@@ -73,7 +78,7 @@ class NeoVortexClient:
         self.hooks = HookManager()
         self.rate_limiter = RateLimiter()
         self.max_retries = max_retries
-    
+
     def enable_plugin(self, plugin_name: str) -> None:
         """Enable a plugin."""
         if not isinstance(plugin_name, str):

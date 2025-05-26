@@ -59,7 +59,12 @@ class AsyncNeoVortexClient:
                     raise SecurityError(f"Non-HTTPS proxy detected for {key}. Use HTTPS instead.")
         
         self.client = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=connect_timeout, read=read_timeout),
+            timeout=httpx.Timeout(
+                connect=connect_timeout,
+                read=read_timeout,
+                write=connect_timeout,
+                pool=connect_timeout
+            ),
             verify=verify_ssl,
             http2=True,
             limits=httpx.Limits(
