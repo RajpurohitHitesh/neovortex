@@ -8,8 +8,8 @@ class NeoVortexError(Exception):
         self.response = response
         self.error_data = error_data
 
-class NeoVortexError(Exception):
-    """Base exception for NeoVortex."""
+class AuthError(NeoVortexError):
+    """Raised when authentication-related errors occur."""
     pass
 
 class SecurityError(NeoVortexError):
