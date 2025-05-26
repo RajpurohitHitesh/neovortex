@@ -9,7 +9,8 @@ from .response import NeoVortexResponse
 from .middleware import MiddlewareManager
 from .exceptions import (
     NeoVortexError, ValidationError, NetworkError, 
-    TimeoutError, RateLimitError, ResponseError
+    TimeoutError, RateLimitError, ResponseError,
+    SecurityError, AuthenticationError
 )
 from .hooks import HookManager
 from .auth.base import AuthBase

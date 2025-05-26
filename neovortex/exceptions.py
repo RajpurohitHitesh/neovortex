@@ -8,30 +8,34 @@ class NeoVortexError(Exception):
         self.response = response
         self.error_data = error_data
 
-class ValidationError(NeoVortexError):
-    """Raised when request validation fails."""
+class NeoVortexError(Exception):
+    """Base exception for NeoVortex."""
     pass
 
-class NetworkError(NeoVortexError):
-    """Raised when network-related errors occur."""
-    pass
-
-class TimeoutError(NeoVortexError):
-    """Raised when request times out."""
-    pass
-
-class RateLimitError(NeoVortexError):
-    """Raised when rate limit is exceeded."""
+class SecurityError(NeoVortexError):
+    """Raised when a security-related error occurs."""
     pass
 
 class AuthenticationError(NeoVortexError):
     """Raised when authentication fails."""
     pass
 
-class ResponseError(NeoVortexError):
-    """Raised when response processing fails."""
+class ValidationError(NeoVortexError):
+    """Raised when validation fails."""
     pass
 
-class SecurityError(NeoVortexError):
-    """Raised when security checks fail."""
+class NetworkError(NeoVortexError):
+    """Raised when a network error occurs."""
+    pass
+
+class TimeoutError(NeoVortexError):
+    """Raised when a request times out."""
+    pass
+
+class RateLimitError(NeoVortexError):
+    """Raised when rate limit is exceeded."""
+    pass
+
+class ResponseError(NeoVortexError):
+    """Raised when there's an error in the response."""
     pass
