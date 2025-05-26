@@ -20,10 +20,6 @@ class AuthenticationError(NeoVortexError):
     """Raised when authentication fails."""
     pass
 
-class AuthError(NeoVortexError):
-    """Raised when authentication fails (alias for OAuth compatibility)."""
-    pass
-
 class ValidationError(NeoVortexError):
     """Raised when validation fails."""
     pass
