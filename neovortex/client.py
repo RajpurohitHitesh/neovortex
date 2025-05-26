@@ -1,14 +1,19 @@
-from typing import Dict, Optional, Any, Union, List
+from typing import Dict, Optional, Any, Union, List, AsyncGenerator
 import httpx
 import logging
 import time
+import json
 from .request import NeoVortexRequest
 from .response import NeoVortexResponse
 from .middleware import MiddlewareManager
-from .exceptions import NeoVortexError
+from .exceptions import (
+    NeoVortexError, ValidationError, NetworkError, 
+    TimeoutError, RateLimitError, ResponseError
+)
 from .hooks import HookManager
 from .auth.base import AuthBase
 from .utils.rate_limiter import RateLimiter
+from .utils.validation import RequestValidator
 from .plugins import registry
 
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +25,8 @@ class NeoVortexClient:
     def __init__(
         self,
         base_url: str = "",
-        timeout: float = 30.0,
+        connect_timeout: float = 5.0,
+        read_timeout: float = 30.0,
         auth: Optional[AuthBase] = None,
         headers: Optional[Dict[str, str]] = None,
         proxies: Optional[Dict[str, str]] = None,
@@ -28,15 +34,27 @@ class NeoVortexClient:
         max_retries: int = 3,
         max_connections: int = 100,
         max_keepalive: int = 20,
+        max_body_size: int = 100 * 1024 * 1024,  # 100MB
     ):
+        """Initialize the client with enhanced configuration options."""
         self.base_url = base_url
         self.proxies = proxies
+        self.max_body_size = max_body_size
+        
+        # Validate timeouts
+        RequestValidator.validate_timeout(connect_timeout)
+        RequestValidator.validate_timeout(read_timeout)
+        
+        # Validate headers
+        RequestValidator.validate_headers(headers)
+        
         if proxies:
             for key, value in proxies.items():
                 if value and not value.startswith("https://"):
-                    raise NeoVortexError(f"Non-HTTPS proxy detected for {key}. Use HTTPS instead.")
+                    raise SecurityError(f"Non-HTTPS proxy detected for {key}. Use HTTPS instead.")
+        
         self.client = httpx.Client(
-            timeout=timeout,
+            timeout=httpx.Timeout(connect=connect_timeout, read=read_timeout),
             verify=verify_ssl,
             http2=True,
             limits=httpx.Limits(
@@ -47,38 +65,76 @@ class NeoVortexClient:
                 "https://": httpx.HTTPTransport(proxy=proxies.get("https")) if proxies else None,
             } if proxies else None,
         )
+        
         self.auth = auth
         self.headers = headers or {}
         self.middleware = MiddlewareManager()
         self.hooks = HookManager()
         self.rate_limiter = RateLimiter()
         self.max_retries = max_retries
-
-    def enable_plugin(self, plugin_name: str):
+    
+    def enable_plugin(self, plugin_name: str) -> None:
+        """Enable a plugin."""
+        if not isinstance(plugin_name, str):
+            raise ValidationError("Plugin name must be a string")
         registry.enable(plugin_name)
-
-    def disable_plugin(self, plugin_name: str):
+    
+    def disable_plugin(self, plugin_name: str) -> None:
+        """Disable a plugin."""
+        if not isinstance(plugin_name, str):
+            raise ValidationError("Plugin name must be a string")
         registry.disable(plugin_name)
-
+    
     def _handle_auth(self, request: NeoVortexRequest) -> NeoVortexRequest:
         """Handle authentication for the request."""
         if self.auth:
-            request = self.auth.apply(request)
+            try:
+                request = self.auth.apply(request)
+            except Exception as e:
+                raise AuthenticationError(f"Authentication failed: {str(e)}")
         return request
-
-    def _process_plugins(self, request: NeoVortexRequest, response: Optional[NeoVortexResponse] = None, start_time: Optional[float] = None) -> Union[NeoVortexRequest, NeoVortexResponse]:
-        """Process plugins for request and response."""
-        for plugin_name in registry.enabled:
-            plugin = registry.get(plugin_name)
-            if plugin:
-                if not response and hasattr(plugin, "process_request"):
-                    request = plugin.process_request(request)
-                elif response and hasattr(plugin, "process_response"):
-                    response = plugin.process_response(request, response)
-                if response and start_time and hasattr(plugin, "track_request"):
-                    plugin.track_request(request, response, start_time)
-        return response or request
-
+    
+    def _process_plugins(
+        self,
+        request: NeoVortexRequest,
+        response: Optional[NeoVortexResponse] = None,
+        start_time: Optional[float] = None
+    ) -> Union[NeoVortexRequest, NeoVortexResponse]:
+        """Process plugins with enhanced error handling."""
+        try:
+            for plugin_name in registry.enabled:
+                plugin = registry.get(plugin_name)
+                if plugin:
+                    if not response and hasattr(plugin, "process_request"):
+                        request = plugin.process_request(request)
+                    elif response and hasattr(plugin, "process_response"):
+                        response = plugin.process_response(request, response)
+                    if response and start_time and hasattr(plugin, "track_request"):
+                        plugin.track_request(request, response, start_time)
+            return response or request
+        except Exception as e:
+            logger.error(f"Plugin processing error: {str(e)}")
+            if sentry_plugin := registry.get("sentry"):
+                sentry_plugin.capture_exception(e)
+            raise NeoVortexError(f"Plugin processing failed: {str(e)}")
+    
+    def stream(
+        self,
+        method: str,
+        url: str,
+        chunk_size: int = 8192,
+        **kwargs
+    ) -> Generator[bytes, None, None]:
+        """Stream response content in chunks."""
+        try:
+            with self.client.stream(method, self._build_url(url), **kwargs) as response:
+                for chunk in response.iter_bytes(chunk_size=chunk_size):
+                    yield chunk
+        except httpx.TimeoutException as e:
+            raise TimeoutError(f"Stream request timed out: {str(e)}")
+        except httpx.NetworkError as e:
+            raise NetworkError(f"Network error during streaming: {str(e)}")
+    
     def request(
         self,
         method: str,
@@ -89,9 +145,16 @@ class NeoVortexClient:
         files: Optional[Any] = None,
         headers: Optional[Dict[str, str]] = None,
         priority: int = 0,
-    ) -> NeoVortexResponse:
-        """Send an HTTP request with middleware and hooks."""
+        stream: bool = False,
+    ) -> Union[NeoVortexResponse, Generator[bytes, None, None]]:
+        """Send an HTTP request with enhanced validation and error handling."""
         try:
+            # Validate input parameters
+            RequestValidator.validate_method(method)
+            RequestValidator.validate_url(url)
+            RequestValidator.validate_headers(headers)
+            RequestValidator.validate_body(data, json)
+            
             request = NeoVortexRequest(
                 method=method,
                 url=self._build_url(url),
@@ -102,30 +165,54 @@ class NeoVortexClient:
                 headers={**self.headers, **(headers or {})},
                 priority=priority,
             )
+            
             request = self._handle_auth(request)
             self.hooks.run("pre_request", request)
             request = self.middleware.process_request(request)
             start_time = time.time()
             request = self._process_plugins(request)
-            self.rate_limiter.check_limit(request)
-
+            
+            try:
+                self.rate_limiter.check_limit(request)
+            except Exception as e:
+                raise RateLimitError(str(e))
+            
+            if stream:
+                return self.stream(method, url, **request.to_dict())
+            
             response = self._send_request(request)
             response = self.middleware.process_response(response)
             response = self._process_plugins(request, response, start_time)
             self.hooks.run("post_response", response)
             self.rate_limiter.update_from_response(response)
+            
             return response
+            
+        except ValidationError:
+            raise
+        except TimeoutError:
+            raise
+        except NetworkError:
+            raise
+        except RateLimitError:
+            raise
         except Exception as e:
             if sentry_plugin := registry.get("sentry"):
                 sentry_plugin.capture_exception(e)
-            raise NeoVortexError(f"Request failed: {str(e)}") from e
-
+            raise NeoVortexError(f"Request failed: {str(e)}")
+    
     def _build_url(self, url: str) -> str:
-        return f"{self.base_url}{url}" if self.base_url else url
-
+        """Build the complete URL with validation."""
+        complete_url = f"{self.base_url}{url}" if self.base_url else url
+        RequestValidator.validate_url(complete_url)
+        return complete_url
+    
     def _send_request(self, request: NeoVortexRequest) -> NeoVortexResponse:
+        """Send the request with retry logic and enhanced error handling."""
         if metrics_plugin := registry.get("metrics"):
             metrics_plugin.track_start()
+        
+        last_error = None
         for attempt in range(self.max_retries):
             try:
                 httpx_response = self.client.request(
@@ -137,18 +224,53 @@ class NeoVortexClient:
                     files=request.files,
                     headers=request.headers,
                 )
-                return NeoVortexResponse(httpx_response)
-            except httpx.HTTPError as e:
-                if attempt == self.max_retries - 1:
-                    raise
-                logger.warning(f"Retrying request: {str(e)}")
-
-    def close(self):
-        """Close the HTTP client."""
-        self.client.close()
-
+                
+                # Validate response
+                if not isinstance(httpx_response, httpx.Response):
+                    raise ResponseError("Invalid response type received from HTTP client")
+                
+                response = NeoVortexResponse(httpx_response)
+                
+                # Handle error status codes
+                if response.status_code >= 400:
+                    error_data = None
+                    try:
+                        if 'application/json' in response.headers.get('content-type', ''):
+                            error_data = response.json()
+                    except:
+                        pass
+                    
+                    if response.status_code >= 500:
+                        raise NetworkError(f"Server error: {response.status_code}", response=response, error_data=error_data)
+                    else:
+                        raise ResponseError(f"Client error: {response.status_code}", response=response, error_data=error_data)
+                
+                return response
+                
+            except httpx.TimeoutException as e:
+                last_error = TimeoutError(f"Request timed out: {str(e)}")
+            except httpx.NetworkError as e:
+                last_error = NetworkError(f"Network error: {str(e)}")
+            except (ResponseError, NetworkError) as e:
+                last_error = e
+            except Exception as e:
+                last_error = NeoVortexError(f"Unexpected error: {str(e)}")
+            
+            if attempt < self.max_retries - 1:
+                logger.warning(f"Retrying request (attempt {attempt + 1}/{self.max_retries}): {str(last_error)}")
+                time.sleep(2 ** attempt)  # Exponential backoff
+            else:
+                raise last_error
+    
+    def close(self) -> None:
+        """Close the HTTP client and cleanup resources."""
+        try:
+            self.client.close()
+        except Exception as e:
+            logger.error(f"Error closing client: {str(e)}")
+    
     def __enter__(self):
         return self
-
+    
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
