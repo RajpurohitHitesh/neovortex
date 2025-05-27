@@ -35,6 +35,10 @@ class RateLimiter:
         except (ValueError, TypeError):
             pass
 
+    async def update_from_response_async(self, response: NeoVortexResponse):
+        """Async version of update_from_response for async contexts."""
+        self.update_from_response(response)
+
     def check_limit(self, request: NeoVortexRequest):
         self._refill_tokens()
         if self.rate_limit_remaining <= 0 and time.time() < self.rate_limit_reset:

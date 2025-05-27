@@ -196,7 +196,7 @@ class AsyncNeoVortexClient:
             request = await self._process_plugins(request)
             
             try:
-                await self.rate_limiter.check_limit(request)
+                await self.rate_limiter.check_limit_async(request)
             except Exception as e:
                 raise RateLimitError(str(e))
             
@@ -207,7 +207,7 @@ class AsyncNeoVortexClient:
             response = self.middleware.process_response(response)
             response = await self._process_plugins(request, response, start_time)
             self.hooks.run("post_response", response)
-            await self.rate_limiter.update_from_response(response)
+            await self.rate_limiter.update_from_response_async(response)
             
             return response
             
