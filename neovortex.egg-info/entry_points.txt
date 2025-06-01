@@ -1,0 +1,2 @@
+[console_scripts]
+neovortex = neovortex.cli:cli

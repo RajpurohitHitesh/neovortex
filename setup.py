@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="neovortex",
-    version="1.0.1",
+    version="1.0.2",
     author="Hitesh Rajpurohit",
     description="A fast, flexible HTTP client for Python with advanced features and plugin support",
     long_description=open("README.md").read(),

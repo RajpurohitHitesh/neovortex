@@ -1,3 +1,42 @@
+Metadata-Version: 2.4
+Name: neovortex
+Version: 1.0.2
+Summary: A modern HTTP client library for Python
+Home-page: https://github.com/rajpurohithitesh/neovortex
+Author: Hitesh Rajpurohit
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx[http2]>=0.23.0
+Requires-Dist: aiohttp>=3.8.0
+Requires-Dist: pydantic>=1.10.0
+Requires-Dist: oauthlib>=3.2.0
+Requires-Dist: requests-oauthlib>=1.3.0
+Requires-Dist: pyjwt>=2.6.0
+Requires-Dist: redis>=4.5.0
+Requires-Dist: prometheus-client>=0.16.0
+Requires-Dist: websockets>=10.4
+Requires-Dist: click>=8.1.0
+Requires-Dist: pytest>=7.2.0
+Requires-Dist: pytest-asyncio>=0.26.0
+Requires-Dist: cryptography>=42.0.0
+Requires-Dist: boto3>=1.28.0
+Requires-Dist: botocore>=1.31.0
+Requires-Dist: sentry-sdk>=1.30.0
+Requires-Dist: elasticsearch>=8.0.0
+Requires-Dist: jsonschema>=4.17.0
+Requires-Dist: xmltodict>=0.13.0
+Requires-Dist: graphql-core>=3.2.0
+Requires-Dist: openapi-core>=0.18.0
+Requires-Dist: PyYAML>=6.0.0
+Requires-Dist: hvac>=1.0.0
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
 # NeoVortex
 
 [![PyPI](https://img.shields.io/pypi/v/neovortex?color=%231182C2&label=PyPI)](https://pypi.org/project/neovortex/)
@@ -11,6 +50,7 @@
 [![Python application](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-app.yml/badge.svg)](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-app.yml)
 [![Python Package using Conda](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-package-conda.yml)
 [![Python package](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-package.yml/badge.svg)](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-package.yml)
+[![Publish to PyPI](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-publish.yml/badge.svg)](https://github.com/RajpurohitHitesh/neovortex/actions/workflows/python-publish.yml)
 
 **NeoVortex** is a modern, high-performance HTTP client library for Python 3.9+, designed to simplify and enhance interactions with APIs. Built with a focus on flexibility, extensibility, and developer experience, it provides a robust set of features for both synchronous and asynchronous HTTP requests, advanced authentication, middleware, plugins, and more. Whether you're a beginner or an experienced developer, NeoVortex makes API interactions intuitive and powerful.
 
