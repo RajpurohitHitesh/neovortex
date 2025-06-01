@@ -189,6 +189,8 @@ Use `NeoVortexClient` for simple scripts or blocking operations, and `AsyncNeoVo
 ### Streaming for Large Data
 NeoVortex supports streaming for large uploads and downloads, reducing memory usage.
 
+NeoVortex supports streaming for large uploads and downloads, reducing memory usage.
+
 **Streaming Upload Example**:
 ```python
 with NeoVortexClient() as client:
@@ -435,7 +437,7 @@ Plugins extend NeoVortex's functionality. See the [Plugins](#plugins) section fo
 NeoVortex is optimized for performance using modern libraries and techniques.
 
 ### High-Performance Libraries
-NeoVortex uses `httpx` for synchronous requests and `aiohttp` for asynchronous requests, ensuring high performance.
+NeoVortex uses `httpx` for both synchronous and asynchronous requests, ensuring high performance with modern HTTP features like HTTP/2 support.
 
 ### Connection Pooling
 NeoVortex supports connection pooling to reduce latency.

@@ -1,30 +1,39 @@
-from typing import Dict, Optional, Any, Union, List, AsyncGenerator
-import httpx
+import time
 import asyncio
 import secrets
+import random
 import logging
-import time
-from .request import NeoVortexRequest
-from .response import NeoVortexResponse
-from .middleware import MiddlewareManager
-from .exceptions import (
-    NeoVortexError, ValidationError, NetworkError, 
-    TimeoutError, RateLimitError, ResponseError,
-    SecurityError, AuthenticationError
-)
-from .hooks import HookManager
-from .auth.base import AuthBase
-from .auth.oauth import OAuth2
-from .utils.rate_limiter import RateLimiter
-from .utils.priority_queue import PriorityQueue
-from .utils.validation import RequestValidator
-from .plugins import registry
+from typing import Dict, Optional, Union, Any, AsyncGenerator
+from asyncio import PriorityQueue
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import httpx
+
+from .exceptions import (
+    NeoVortexError, ValidationError, TimeoutError, 
+    NetworkError, RateLimitError, ResponseError, SecurityError
+)
+from .models import NeoVortexRequest, NeoVortexResponse
+from .validator import RequestValidator
+from .middleware import MiddlewareManager
+from .hooks import HookManager
+from .ratelimit import RateLimiter
+from .plugins.registry import registry
+from .auth import AuthBase
+
+logger = logging.getLogger("neovortex")
 
 class AsyncNeoVortexClient:
-    """Asynchronous HTTP client for NeoVortex with advanced features."""
+    """
+    Asynchronous HTTP client for making requests with advanced features.
+    
+    Features:
+    - Automatic retries with exponential backoff
+    - Middleware support
+    - Plugin system
+    - Comprehensive error handling
+    - Rate limiting
+    - Connection pooling
+    """
     
     def __init__(
         self,
@@ -36,10 +45,10 @@ class AsyncNeoVortexClient:
         proxies: Optional[Dict[str, str]] = None,
         verify_ssl: bool = True,
         max_retries: int = 3,
-        max_concurrent: int = 10,
         max_connections: int = 100,
         max_keepalive: int = 20,
         max_body_size: int = 100 * 1024 * 1024,  # 100MB
+        max_concurrent: int = 10,
     ):
         """Initialize the async client with enhanced configuration options."""
         self.base_url = base_url
@@ -84,78 +93,54 @@ class AsyncNeoVortexClient:
         self.max_retries = max_retries
         self.queue = PriorityQueue(max_concurrent)
     
-    def enable_plugin(self, plugin_name: str) -> None:
-        """Enable a plugin."""
-        if not isinstance(plugin_name, str):
-            raise ValidationError("Plugin name must be a string")
-        registry.enable(plugin_name)
-    
-    def disable_plugin(self, plugin_name: str) -> None:
-        """Disable a plugin."""
-        if not isinstance(plugin_name, str):
-            raise ValidationError("Plugin name must be a string")
-        registry.disable(plugin_name)
-    
     async def _handle_auth(self, request: NeoVortexRequest) -> NeoVortexRequest:
-        """Handle authentication for the request asynchronously."""
+        """Apply authentication to the request."""
         if self.auth:
             try:
-                if isinstance(self.auth, OAuth2):
-                    request = await self.auth.apply(request)
-                else:
-                    request = self.auth.apply(request)
+                return await self.auth.authenticate_async(request)
             except Exception as e:
-                raise AuthenticationError(f"Authentication failed: {str(e)}")
+                logger.error(f"Authentication error: {str(e)}")
+                raise SecurityError(f"Authentication failed: {str(e)}")
         return request
     
-    async def _process_plugins(
-        self,
-        request: NeoVortexRequest,
-        response: Optional[NeoVortexResponse] = None,
-        start_time: Optional[float] = None
-    ) -> Union[NeoVortexRequest, NeoVortexResponse]:
-        """Process plugins with enhanced error handling."""
-        try:
-            for plugin_name in registry.enabled:
-                plugin = registry.get(plugin_name)
-                if plugin:
-                    if not response and hasattr(plugin, "process_request"):
-                        request = (
-                            await plugin.process_request(request)
-                            if asyncio.iscoroutinefunction(plugin.process_request)
-                            else plugin.process_request(request)
-                        )
-                    elif response and hasattr(plugin, "process_response"):
-                        response = (
-                            await plugin.process_response(request, response)
-                            if asyncio.iscoroutinefunction(plugin.process_response)
-                            else plugin.process_response(request, response)
-                        )
-                    if response and start_time and hasattr(plugin, "track_request"):
-                        await plugin.track_request(request, response, start_time)
-            return response or request
-        except Exception as e:
-            logger.error(f"Plugin processing error: {str(e)}")
-            if sentry_plugin := registry.get("sentry"):
-                await sentry_plugin.capture_exception(e)
-            raise NeoVortexError(f"Plugin processing failed: {str(e)}")
+    async def _process_plugins(self, request: NeoVortexRequest, response=None, start_time=None):
+        """Process plugins for the request or response."""
+        if response is None:
+            # Process request plugins
+            for plugin_name, plugin in registry.plugins.items():
+                if hasattr(plugin, "process_request_async"):
+                    try:
+                        request = await plugin.process_request_async(request)
+                    except Exception as e:
+                        logger.warning(f"Error in plugin {plugin_name} processing request: {str(e)}")
+            return request
+        else:
+            # Process response plugins
+            for plugin_name, plugin in registry.plugins.items():
+                if hasattr(plugin, "process_response_async"):
+                    try:
+                        response = await plugin.process_response_async(request, response, start_time)
+                    except Exception as e:
+                        logger.warning(f"Error in plugin {plugin_name} processing response: {str(e)}")
+            return response
     
     async def stream(
         self,
         method: str,
         url: str,
-        chunk_size: int = 8192,
         **kwargs
     ) -> AsyncGenerator[bytes, None]:
-        """Stream response content in chunks asynchronously."""
+        """Stream response data with async generator."""
         try:
-            async with self.client.stream(method, self._build_url(url), **kwargs) as response:
-                async for chunk in response.aiter_bytes(chunk_size=chunk_size):
+            async with self.client.stream(method, url, **kwargs) as response:
+                async for chunk in response.aiter_bytes():
                     yield chunk
         except httpx.TimeoutException as e:
-            raise TimeoutError(f"Stream request timed out: {str(e)}")
+            raise TimeoutError(f"Stream timed out: {str(e)}")
         except httpx.NetworkError as e:
             raise NetworkError(f"Network error during streaming: {str(e)}")
+        except Exception as e:
+            raise NeoVortexError(f"Streaming error: {str(e)}")
     
     async def request(
         self,
@@ -163,7 +148,7 @@ class AsyncNeoVortexClient:
         url: str,
         params: Optional[Dict[str, Any]] = None,
         data: Optional[Any] = None,
-        json: Optional[Any] = None,
+        json: Optional[Dict[str, Any]] = None,
         files: Optional[Any] = None,
         headers: Optional[Dict[str, str]] = None,
         priority: int = 0,
@@ -260,7 +245,7 @@ class AsyncNeoVortexClient:
                     try:
                         if 'application/json' in response.headers.get('content-type', ''):
                             error_data = response.json()
-                    except:
+                    except (ValueError, KeyError, AttributeError):
                         pass
                     
                     if response.status_code >= 500:
