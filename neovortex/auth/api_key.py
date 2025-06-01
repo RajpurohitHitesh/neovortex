@@ -10,5 +10,13 @@ class APIKeyAuth(AuthBase):
         self.header_name = header_name
 
     def apply(self, request: NeoVortexRequest) -> NeoVortexRequest:
+        """Apply API key to the request headers (legacy method)."""
         request.headers[self.header_name] = self.api_key
         return request
+    
+    def authenticate(self, request: NeoVortexRequest) -> NeoVortexRequest:
+        """Apply API key to the request headers.
+        
+        This method is called by the client to authenticate the request.
+        """
+        return self.apply(request)

@@ -1,11 +1,3 @@
-"""
-NeoVortex Plugin Registry
-==========================
-
-This module provides a registry for managing plugins in the NeoVortex client.
-The registry is responsible for enabling, disabling, and accessing plugins.
-"""
-
 class PluginRegistry:
     """Manages enabling/disabling of plugins."""
     def __init__(self):
