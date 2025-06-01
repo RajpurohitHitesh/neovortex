@@ -1,15 +1,3 @@
-"""
-NeoVortex Models
-===============
-
-This module provides core data models for NeoVortex HTTP client including:
-- Request and Response models
-- Data validation models
-- Helper models for common operations
-
-All models include proper type hints for mypy compatibility.
-"""
-
 import time
 import json
 from enum import Enum
