@@ -1,10 +1,3 @@
-"""
-NeoVortex Request Validator
-===========================
-
-This module provides validation utilities for HTTP requests and responses.
-"""
-
 from typing import Dict, Optional, Any
 from urllib.parse import urlparse
 from .exceptions import ValidationError
